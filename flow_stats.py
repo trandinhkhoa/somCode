@@ -30,6 +30,8 @@ from pox.lib.util import dpidToStr
 import pox.openflow.libopenflow_01 as of
 import time as t
 import pickle
+import pandas as pd 
+import numpy as np
 # include as part of the betta branch
 from pox.openflow.of_json import *
 
@@ -57,7 +59,7 @@ def _handle_flowstats_received (event):
   flowTable=[]
   if (event.connection.dpid==1):
     print "dpid=", event.connection.dpid
-    print stats
+    # print stats
     print "************************************************"
   # #print stats
   # n2 = t.time()
@@ -65,42 +67,62 @@ def _handle_flowstats_received (event):
   # # print 'n2=',n2
   # # delay=n2-n1
   # # print 'delay=',delay
-  # flowtable=[]
-  # for f in event.stats:
-  #   # print "------------------------"  
-  #   actions=[]
-  #   #print 'print',f.actions[0]['type']
-  #   for obj in f.actions:
-  #      actions.append(obj.show())   
-  #   flow={'cookie':hex(f.cookie),
-  #         'duration_sec':f.duration_sec,
-  #         'duration_nsec':f.duration_nsec,
-  #         'table_id':f.table_id,
-  #         'priority':f.priority,
-  #         'n_packets':f.packet_count,
-  #         'n_bytes':f.byte_count,
-  #         'idle_timeout':f.idle_timeout,
-  #         'hard_timeout':f.hard_timeout,
-  #         'protocol':f.match.nw_proto,
-  #         'in_port':f.match.in_port,
-  #         'dl_vlan':f.match.dl_vlan,
-  #         'dl_vlan_pcp':f.match.dl_vlan_pcp,
-  #         'dl_src':str(f.match.dl_src),
-  #         'dl_dst':str(f.match.dl_dst),
-  #         'nw_src':str(f.match.nw_src),
-  #         'nw_dst':str(f.match.nw_dst),
-  #         'nw_tos':str(f.match.nw_tos),
-  #         'tp_src':str(f.match.tp_src),
-  #         'tp_dst':str(f.match.tp_dst),
-  #         'action':f.actions[0].show()}
-  #   flowTable.append(flow)
+  flowtable=[]
+  for f in event.stats:
+    # print "------------------------"  
+    # actions=[]
+    #print 'print',f.actions[0]['type']
+    # for obj in f.actions:
+       # actions.append(obj.show())  
+    flowtable.append([hex(f.cookie),
+                      f.duration_sec,
+                      f.duration_nsec,
+                      f.table_id,
+                      f.priority,
+                      f.packet_count,
+                      f.byte_count,
+                      f.idle_timeout,
+                      f.hard_timeout,
+                      f.match.nw_proto,
+                      f.match.in_port,
+                      f.match.dl_vlan,
+                      f.match.dl_vlan_pcp,
+                      str(f.match.dl_src),
+                      str(f.match.dl_dst),
+                      str(f.match.nw_src),
+                      str(f.match.nw_dst),
+                      str(f.match.nw_tos),
+                      str(f.match.tp_src),
+                      str(f.match.tp_dst)]) 
+    # flow={'cookie':hex(f.cookie),
+    #       'duration_sec':f.duration_sec,
+    #       'duration_nsec':f.duration_nsec,
+    #       'table_id':f.table_id,
+    #       'priority':f.priority,
+    #       'n_packets':f.packet_count,
+    #       'n_bytes':f.byte_count,
+    #       'idle_timeout':f.idle_timeout,
+    #       'hard_timeout':f.hard_timeout,
+    #       'protocol':f.match.nw_proto,
+    #       'in_port':f.match.in_port,
+    #       'dl_vlan':f.match.dl_vlan,
+    #       'dl_vlan_pcp':f.match.dl_vlan_pcp,
+    #       'dl_src':str(f.match.dl_src),
+    #       'dl_dst':str(f.match.dl_dst),
+    #       'nw_src':str(f.match.nw_src),
+    #       'nw_dst':str(f.match.nw_dst),
+    #       'nw_tos':str(f.match.nw_tos),
+    #       'tp_src':str(f.match.tp_src),
+    #       'tp_dst':str(f.match.tp_dst),
+    #       'action':f.actions[0].show()}
+    # flowTable.append(flow)
   # #print actions 
   # if len(flowTable) >0:
   #   table.append(flowTable)
   #   global cnt
   #   cnt +=1
   #   if (cnt<=135) and (cnt % 15 ==0):
-  #     pickle.dump(table,open('./ext/outDDOS/20160202-ddos-'+str(cnt),'wb'))
+  pickle.dump(table,open('./ext/outDDOS/20160202-ddos-'+str(cnt),'wb'))
   #     del table[:]
   #     print "Da in roi nhe hihi", cnt
   # print "cnt=",cnt
