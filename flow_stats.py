@@ -145,121 +145,212 @@ def _handle_flowstats_received (event):
                     # 'nw_tos',
                     'tp_src',
                     'tp_dst'])
-      df2.packet_count = df2.packet_count.astype(np.float)
-      # print 'df1 \n', df1
-      # print '\ndf2 \n', df2
-      table1 = df1.groupby(['nw_src','nw_dst']).groups            # return dictionary
-      table2 = df2.groupby(['nw_src','nw_dst']).groups            # return dictionary
-      # table1 = pd.Series(table1)
-      # table2 = pd.Series(table2)
-      keys1  = set(table1.keys())
-      keys2  = set(table2.keys())
-      keys1 = np.array(keys1)
-      keys2 = np.array(keys2)
-      # print(keys2-keys1)
-      print("type key1 =",type(keys1),"type table1 =",type(table1))
-      print("type key2 =",type(keys2),"type table2 =",type(table2))
-      # print(keys2-keys1)
-      n4 = t.time()                              ##################   n4 - n3 = grouping time####################
-      print("n4-n3=",n4-n3)
-      count=0
-      new_flows = pd.DataFrame(columns=['cookie',
+      # new_flows = pd.DataFrame(columns=['cookie',
+      #               # 'duration_sec',
+      #               # 'duration_nsec',
+      #               # 'table_id',
+      #               # 'priority',
+      #               'packet_count',
+      #               # 'byte_count',
+      #               # 'idle_timeout',
+      #               # 'hard_timeout',
+      #               'nw_proto',
+      #               # 'in_port',
+      #               # 'dl_vlan',
+      #               # 'dl_vlan_pcp',
+      #               # 'dl_src',
+      #               # 'dl_dst',
+      #               'nw_src',
+      #               'nw_dst',
+      #               # 'nw_tos',
+      #               'tp_src',
+      #               'tp_dst'])
+      new_flows = pd.DataFrame(columns=['nw_src',
                     # 'duration_sec',
                     # 'duration_nsec',
                     # 'table_id',
                     # 'priority',
-                    'packet_count',
+                    'nw_dst',
                     # 'byte_count',
                     # 'idle_timeout',
                     # 'hard_timeout',
-                    'nw_proto',
+                    'cookie',
                     # 'in_port',
                     # 'dl_vlan',
                     # 'dl_vlan_pcp',
                     # 'dl_src',
                     # 'dl_dst',
-                    'nw_src',
-                    'nw_dst',
+                    'packet_count',
+                    'nw_proto',
                     # 'nw_tos',
                     'tp_src',
                     'tp_dst'])
-      n5 = t.time()             ############################ n5  #########################
-      for key in (keys2 - keys1):
-          # print('key=',key)
-          # print('table2[key]=',table2[key])
-          for i in table2[key]:
-              # print('loc:',df2.loc[i])
-              new_flows.loc[count]=df2.loc[i].copy()
-              count = count + 1
-      n6 = t.time()          ###################### n6 -n5 = get diff IP src, dst flow  #################
-      print("n6-n5=",n6-n5)
-      print("type nw_src,nw_dst = ",type(df1.nw_src[2]),type(df2.nw_dst[2]))
-      for key in (keys1 & keys2):
-          same_entries1=[]
-          same_entries2=[]
+      df2.packet_count = df2.packet_count.astype(np.float)
+      ############               add diff IP_src,IP_dst
+      merg=pd.merge(df1, df2, on=['nw_src', 'nw_dst'], how='inner')
+      merg1=merg.drop('tp_src_x',axis=1)
+      merg1=merg1.drop('tp_dst_x',axis=1)
+      merg1=merg1.drop('cookie_x',axis=1)
+      merg1=merg1.drop('packet_count_x',axis=1)
+      merg1=merg1.drop('nw_proto_x',axis=1)
+      merg1.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst']
+      ds1 = set(tuple(line) for line in merg1.values)
+      ds2 = set(tuple(line) for line in df2.values)
+      df = pd.DataFrame(list(ds2.difference(ds1)),columns=df2.columns)
+      # print merg1
+      new_flows.append(df)
+      # find common row in term of A & B
+      merg=pd.merge(df1, df2, on=['nw_src', 'nw_dst'], how='inner')
+      df=merg.loc[(merg['tp_src_x']!=merg['tp_src_y']) |  (merg['tp_dst_x']!=merg['tp_dst_y']) | (merg['nw_proto_x']!=merg['nw_proto_y'])]
+      df=df.drop('tp_src_x',axis=1)
+      df=df.drop('tp_dst_x',axis=1)
+      df=df.drop('cookie_x',axis=1)
+      df=df.drop('packet_count_x',axis=1)
+      df=df.drop('nw_proto_x',axis=1)
+      df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
+      new_flows.append(df)
+      ##########################################
+      df=merg.loc[(merg['tp_src_x']==merg['tp_src_y']) &  (merg['tp_dst_x']==merg['tp_dst_y']) & (merg['nw_proto_x']==merg['nw_proto_y']) & (merg['packet_count_y']<merg['packet_count_x'])]
+      df=df.drop('tp_src_x',axis=1)
+      df=df.drop('tp_dst_x',axis=1)
+      df=df.drop('cookie_x',axis=1)
+      df=df.drop('packet_count_x',axis=1)
+      df=df.drop('nw_proto_x',axis=1)
+      df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
+      new_flows.append(df)
+      ###########################################
+      # print merg
+      df=merg.loc[(merg['tp_src_x']==merg['tp_src_y']) &  (merg['tp_dst_x']==merg['tp_dst_y']) & (merg['nw_proto_x']==merg['nw_proto_y']) & (merg['packet_count_y']>merg['packet_count_x'])]
+      df.packet_count_y=df.packet_count_y-df.packet_count_x-1
+      df=df.drop('tp_src_x',axis=1)
+      df=df.drop('tp_dst_x',axis=1)
+      df=df.drop('cookie_x',axis=1)
+      df=df.drop('packet_count_x',axis=1)
+      df=df.drop('nw_proto_x',axis=1)
+      df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
+      # print "DF=\n",df
+      # test=pd.DataFrame(np.random.randn(5,7),columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'])
+      new_flows=new_flows.append(df)
+      print new_flows
 
-          n7 = t.time()    #####################  n7  ###########################  
+      # print 'df1 \n', df1
+      # print '\ndf2 \n', df2
+      # table1 = df1.groupby(['nw_src','nw_dst']).groups            # return dictionary
+      # table2 = df2.groupby(['nw_src','nw_dst']).groups            # return dictionary
+      # table1 = pd.Series(table1)
+      # table2 = pd.Series(table2)
+      # keys1  = set(table1.keys())
+      # keys2  = set(table2.keys())
+      # diff = np.asarray(keys2-keys1)
+      # comm = np.asarray(keys2 & keys1)
+      # print "comm=",comm,"type=",type(comm)
+      # # print "diff=",diff
+      # # keys1 = np.array(keys1)
+      # # keys2 = np.array(keys2)
+      # # print(keys2-keys1)
+      # print("type key1 =",type(keys1),"type table1 =",type(table1))
+      # print("type key2 =",type(keys2),"type table2 =",type(table2))
+      # # print(keys2-keys1)
+      # n4 = t.time()                              ##################   n4 - n3 = grouping time####################
+      # print("n4-n3=",n4-n3)
+      # count=0
+      # new_flows = pd.DataFrame(columns=['cookie',
+      #               # 'duration_sec',
+      #               # 'duration_nsec',
+      #               # 'table_id',
+      #               # 'priority',
+      #               'packet_count',
+      #               # 'byte_count',
+      #               # 'idle_timeout',
+      #               # 'hard_timeout',
+      #               'nw_proto',
+      #               # 'in_port',
+      #               # 'dl_vlan',
+      #               # 'dl_vlan_pcp',
+      #               # 'dl_src',
+      #               # 'dl_dst',
+      #               'nw_src',
+      #               'nw_dst',
+      #               # 'nw_tos',
+      #               'tp_src',
+      #               'tp_dst'])
+      # n5 = t.time()             ############################ n5  #########################
+      # for key in (keys2 - keys1):
+      #     # print('key=',key)
+      #     # print('table2[key]=',table2[key])
+      #     for i in table2[key]:
+      #         # print('loc:',df2.loc[i])
+      #         new_flows.loc[count]=df2.loc[i].copy()
+      #         count = count + 1
+      # n6 = t.time()          ###################### n6 -n5 = get diff IP src, dst flow  #################
+      # print("n6-n5=",n6-n5)
+      # print("type nw_src,nw_dst = ",type(df1.nw_src[2]),type(df2.nw_dst[2]))
+      # for key in (keys1 & keys2):
+      #     same_entries1=[]
+      #     same_entries2=[]
 
-          for entry1 in table1[key]:
-            for entry2 in table2[key]:
-                # print(df2.loc[entry2]['v1'])
-                if (entry2 not in same_entries2) and (df1.loc[entry1]['tp_src']==df2.loc[entry2]['tp_src']) and ((df1.loc[entry1]['tp_dst']==df2.loc[entry2]['tp_dst'])) and (df1.loc[entry1]['nw_proto']==df2.loc[entry2]['nw_proto']):
-                    same_entries1.append(entry1)
-                    same_entries2.append(entry2)
-                    # print("same1 :",same_entries1)
-                    # print("same2 :",same_entries2)
-                    break
-          # print(type(table2))
-          # print(table2[key])
-          n8 = t.time()          ############################   n8 - n7 = create same entries #########################
-          print "n8-n7=",n8-n7
-          i=0
-          for entry2 in table2[key]:
-            # print('entry2=',entry2)
-            if entry2 not in same_entries2:
-              # if this is new flow
-              new_flows.loc[count]=df2.loc[entry2].copy()
-              count=count+1
-              # print('i=',i)
-              # print("-----")
-            else:
-              # print("i=",i)
-              # print("len same entries1 = ",len(same_entries1))
-              # print("df2 entry2 pkt count =",df2.loc[entry2]['packet_count'])
-              # print("df1 same [i] pkt count= ",df1.loc[same_entries1[i]]['packet_count'])
-              # print(df2.loc[entry2]['packet_count'] < df1.loc[same_entries1[i]]['packet_count'])
-              # print "df2",df2.loc[entry2]
-              # print "df1",df1.loc[same_entries1[i]]
-              if df2.loc[entry2]['packet_count'] < df1.loc[same_entries1[i]]['packet_count']:
-                  # print("df2 entry2 pkt count =",df2.loc[entry2]['packet_count'])
-                  # print("df1 same [i] pkt count= ",df1.loc[same_entries1[i]]['packet_count'])
-                  # means this is dead and there is a new flow entry
-                  new_flows.loc[count]=df2.loc[entry2].copy()
-                  count=count+1
-              elif df2.loc[entry2]['packet_count'] > df1.loc[same_entries1[i]]['packet_count']:
-                  # print('type df2 entry= ',type(df2.loc[entry2]))
-                  pseudo_flow = df2.loc[entry2].copy()
-                  # -1 to simulate that this is a new flow entry
-                  # print('df2 entry2 pkt count =',df2.loc[entry2]['packet_count'])
-                  # print('df1 same [i] pkt count =',df1.loc[same_entries1[i]]['packet_count'])
-                  pseudo_flow['packet_count'] = int(df2.loc[entry2]['packet_count']) - int(df1.loc[same_entries1[i]]['packet_count']) -1
-                  #unknown fields to None
-                  # print('pseudo pkt count =',pseudo_flow['packet_count'])
-                  # print('df2 entry2 pkt count =',df2.loc[entry2]['packet_count'])
-                  pseudo_flow['cookie']=None
-                  new_flows.loc[count]=pseudo_flow
-                  count=count+1
-              i=i+1
-          n9 = t.time()  ####################  n9-n8 = add diff flow time    ##################    
-          print "n9-n8=",n9-n8
+      #     n7 = t.time()    #####################  n7  ###########################  
+
+      #     for entry1 in table1[key]:
+      #       for entry2 in table2[key]:
+      #           # print(df2.loc[entry2]['v1'])
+      #           if (entry2 not in same_entries2) and (df1.loc[entry1]['tp_src']==df2.loc[entry2]['tp_src']) and ((df1.loc[entry1]['tp_dst']==df2.loc[entry2]['tp_dst'])) and (df1.loc[entry1]['nw_proto']==df2.loc[entry2]['nw_proto']):
+      #               same_entries1.append(entry1)
+      #               same_entries2.append(entry2)
+      #               # print("same1 :",same_entries1)
+      #               # print("same2 :",same_entries2)
+      #               break
+      #     # print(type(table2))
+      #     # print(table2[key])
+      #     n8 = t.time()          ############################   n8 - n7 = create same entries #########################
+      #     print "n8-n7=",n8-n7
+      #     i=0
+      #     for entry2 in table2[key]:
+      #       # print('entry2=',entry2)
+      #       if entry2 not in same_entries2:
+      #         # if this is new flow
+      #         new_flows.loc[count]=df2.loc[entry2].copy()
+      #         count=count+1
+      #         # print('i=',i)
+      #         # print("-----")
+      #       else:
+      #         # print("i=",i)
+      #         # print("len same entries1 = ",len(same_entries1))
+      #         # print("df2 entry2 pkt count =",df2.loc[entry2]['packet_count'])
+      #         # print("df1 same [i] pkt count= ",df1.loc[same_entries1[i]]['packet_count'])
+      #         # print(df2.loc[entry2]['packet_count'] < df1.loc[same_entries1[i]]['packet_count'])
+      #         # print "df2",df2.loc[entry2]
+      #         # print "df1",df1.loc[same_entries1[i]]
+      #         if df2.loc[entry2]['packet_count'] < df1.loc[same_entries1[i]]['packet_count']:
+      #             # print("df2 entry2 pkt count =",df2.loc[entry2]['packet_count'])
+      #             # print("df1 same [i] pkt count= ",df1.loc[same_entries1[i]]['packet_count'])
+      #             # means this is dead and there is a new flow entry
+      #             new_flows.loc[count]=df2.loc[entry2].copy()
+      #             count=count+1
+      #         elif df2.loc[entry2]['packet_count'] > df1.loc[same_entries1[i]]['packet_count']:
+      #             # print('type df2 entry= ',type(df2.loc[entry2]))
+      #             pseudo_flow = df2.loc[entry2].copy()
+      #             # -1 to simulate that this is a new flow entry
+      #             # print('df2 entry2 pkt count =',df2.loc[entry2]['packet_count'])
+      #             # print('df1 same [i] pkt count =',df1.loc[same_entries1[i]]['packet_count'])
+      #             pseudo_flow['packet_count'] = int(df2.loc[entry2]['packet_count']) - int(df1.loc[same_entries1[i]]['packet_count']) -1
+      #             #unknown fields to None
+      #             # print('pseudo pkt count =',pseudo_flow['packet_count'])
+      #             # print('df2 entry2 pkt count =',df2.loc[entry2]['packet_count'])
+      #             pseudo_flow['cookie']=None
+      #             new_flows.loc[count]=pseudo_flow
+      #             count=count+1
+      #         i=i+1
+      #     n9 = t.time()  ####################  n9-n8 = add diff flow time    ##################    
+      #     print "n9-n8=",n9-n8
           ###############  n8 - n7   ###################################
               # print("*****")
       # print(same_entries1)
       # print(same_entries2)
       # print 'new_flows \n',new_flows
       # print 'ip_src', new_flows.nw_src.unique
-      n10 = t.time()    ########################  n10 - n6 = 2.1s UDP 10packet/s  ###############################
-      print(" time to get new flow n10 -n6=",n10-n6)
+      # n10 = t.time()    ########################  n10 - n6 = 2.1s UDP 10packet/s  ###############################
+      # print(" time to get new flow n10 -n6=",n10-n6)
       ent_ip_src = calculate_Entropy(new_flows.groupby(['nw_src'])['packet_count'].sum())
       ent_tp_src = calculate_Entropy(new_flows.groupby(['tp_src'])['packet_count'].sum())
       ent_tp_dst = calculate_Entropy(new_flows.groupby(['tp_dst'])['packet_count'].sum())
@@ -267,11 +358,10 @@ def _handle_flowstats_received (event):
       total_packets = new_flows.packet_count.sum()
       feature_vector = pd.Series([ent_ip_src,ent_tp_src,ent_tp_dst,ent_packet_type,total_packets], index=['ent_ip_src', 'ent_tp_src', 'ent_tp_dst', 'ent_packet_type', 'total_packets'])
       print "Feature list \n ", feature_vector
-      n11 = t.time()      ##################### n11-n10 = time to cal FEature  #############################
-      print("time to get FVector n11-n10=", n11-n10)
+      # n11 = t.time()      ##################### n11-n10 = time to cal FEature  #############################
+      # print("time to get FVector n11-n10=", n11-n10)
       df1 = df2.copy()
       n12 = t.time()     ################  n12-n1 = total time ##############
-      print
       print('total delay =', n12 -n1)
       
 
