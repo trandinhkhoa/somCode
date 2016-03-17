@@ -186,8 +186,8 @@ def _handle_flowstats_received (event):
                     'tp_src',
                     'tp_dst'])
       df2.packet_count = df2.packet_count.astype(np.float)
-      print 'df1 \n', df1
-      print 'df2 \n', df2
+      # print 'df1 \n', df1
+      # print 'df2 \n', df2
       ############               add diff IP_src,IP_dst
 ###########################################  v.1 ####################
       # merg=pd.merge(df1, df2, on=['nw_src', 'nw_dst'], how='inner')
@@ -210,9 +210,9 @@ def _handle_flowstats_received (event):
 ################# v.2 #######################
       df1.set_index(['nw_src', 'nw_dst'], inplace=True)
       df2.set_index(['nw_src', 'nw_dst'], inplace=True)
-      s= df2.join(df1,lsuffix='_x',rsuffix='_y')
-      print "S=\n",s
-      s=s.loc[np.isnan(s.packet_count_y)]
+      combined= df2.join(df1,lsuffix='_x',rsuffix='_y')
+      # print "S=\n",s
+      s=combined.loc[np.isnan(combined.packet_count_y)]
       s.reset_index(level=['nw_src', 'nw_dst'], inplace=True)
       s=s.drop('tp_src_y',axis=1)
       s=s.drop('tp_dst_y',axis=1)
@@ -221,27 +221,60 @@ def _handle_flowstats_received (event):
       s=s.drop('nw_proto_y',axis=1)
       s.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst']
       new_flows=new_flows.append(s)
-      print "NEW=\n",new_flows
+      # print "NEW=\n",new_flows
       df1.reset_index(level=['nw_src', 'nw_dst'], inplace=True)
       df2.reset_index(level=['nw_src', 'nw_dst'], inplace=True)
 ################# v.2 #######################
 
       ################################## Same IP, port  & protocol differerent ***********************************
-      merg=pd.merge(df1, df2, on=['nw_src', 'nw_dst'], how='inner')
-      print "MERG=\n",merg
-      df=merg.loc[(merg['tp_src_x']!=merg['tp_src_y']) |  (merg['tp_dst_x']!=merg['tp_dst_y']) | (merg['nw_proto_x']!=merg['nw_proto_y'])]
-      # print "merg=\n", merg
-      # print "DF=\n", df
-      df=df.drop('tp_src_x',axis=1)
-      df=df.drop('tp_dst_x',axis=1)
-      df=df.drop('cookie_x',axis=1)
-      df=df.drop('packet_count_x',axis=1)
-      df=df.drop('nw_proto_x',axis=1)
-      df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
-      new_flows=new_flows.append(df)
-      print "NEW=\n",new_flows
+      #########   v.1 wrong ###############
+      # merg=pd.merge(df1, df2, on=['nw_src', 'nw_dst'], how='inner')
+      # print "MERG=\n",merg
+      # df=merg.loc[(merg['tp_src_x']!=merg['tp_src_y']) |  (merg['tp_dst_x']!=merg['tp_dst_y']) | (merg['nw_proto_x']!=merg['nw_proto_y'])]
+      # # print "merg=\n", merg
+      # # print "DF=\n", df
+      # df=df.drop('tp_src_x',axis=1)
+      # df=df.drop('tp_dst_x',axis=1)
+      # df=df.drop('cookie_x',axis=1)
+      # df=df.drop('packet_count_x',axis=1)
+      # df=df.drop('nw_proto_x',axis=1)
+      # df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
+      # new_flows=new_flows.append(df)
+      # print "NEW=\n",new_flows
+      #########   v.1 wrong ###############
+      
+      same1same2=combined.loc[(combined['tp_src_x']==combined['tp_src_y']) &  (combined['tp_dst_x']==combined['tp_dst_y']) & (combined['nw_proto_x']==combined['nw_proto_y'])]                ##### get all same entries same1 + same2
+      same2 = pd.concat([same1same2['cookie_x'],same1same2['packet_count_x'],same1same2['nw_proto_x'],same1same2['tp_src_x'],same1same2['tp_dst_x']], axis=1, keys=['cookie','packet_count','nw_proto','tp_src','tp_dst'])               ################ take out same 2 from same1+same2
+      # print("SAME2 =\n",same2)
+      # print("DF2 =\n",df2)
+      # print "DF2= \n",df2
+      # print "SAME2= \n",same2
+      same2.reset_index(level=['nw_src','nw_dst'],inplace=True)            ### reset index  before change again
+      df2.set_index(['nw_src','nw_dst','nw_proto','tp_src','tp_dst'],inplace=True)           ### set new index, find new record (new flow) based on this , REMEMBER TO RESET IT AGAIN !!!!!!
+      same2.set_index(['nw_src','nw_dst','nw_proto','tp_src','tp_dst'],inplace=True)
+      result2 = df2.join(same2,lsuffix='_x',rsuffix='_y')     ###### same2.join  or  df2.join ????    form table with same index from both table df2,same2  
+      # print "RESULT2=\n",result2
+      result2=result2.loc[np.isnan(result2.packet_count_y)]          ##### record contain NaN is new record 
+      result2.reset_index(level=['nw_src','nw_dst','nw_proto','tp_src','tp_dst'], inplace=True)
+      # print "RESULT2=\n",result2
+      # result2=result2.drop('tp_src_y',axis=1)
+      # result2=result2.drop('tp_dst_y',axis=1)
+      result2=result2.drop('cookie_y',axis=1)
+      result2=result2.drop('packet_count_y',axis=1)
+      # result2=result2.drop('nw_src_y',axis=1)
+      # result2=result2.drop('nw_dst_y',axis=1)
+      # result2=result2.drop('nw_proto_y',axis=1)
+      # print "RESULT2= KHOA KHOA KHOA\n",result2
+      result2.columns=['nw_src','nw_dst','nw_proto','tp_src','tp_dst','cookie','packet_count']
+      # print "RESULT2= FUCK FUCK FUCK\n",result2
+      new_flows=new_flows.append(result2)
+      # print "NEW=\n",new_flows
+      df2.reset_index(['nw_src','nw_dst','nw_proto','tp_src','tp_dst'],inplace=True)
+      # print "DF2 =\n",df2
       # ##########################################          New pkt count < old pkt count => new flow => add
       # print "MERG=",merg
+      merg=pd.merge(df1, df2, on=['nw_src', 'nw_dst'], how='inner')
+      # print "MERGE= \n",merg
       df=merg.loc[(merg['tp_src_x']==merg['tp_src_y']) &  (merg['tp_dst_x']==merg['tp_dst_y']) & (merg['nw_proto_x']==merg['nw_proto_y']) & (merg['packet_count_y']<merg['packet_count_x'])]
       # print "DF=",df
       df=df.drop('tp_src_x',axis=1)
@@ -249,9 +282,9 @@ def _handle_flowstats_received (event):
       df=df.drop('cookie_x',axis=1)
       df=df.drop('packet_count_x',axis=1)
       df=df.drop('nw_proto_x',axis=1)
-      df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
+      df.columns=['nw_src','nw_dst','nw_proto','tp_src','tp_dst','cookie','packet_count'] 
       new_flows=new_flows.append(df)
-      print "NEW=\n",new_flows
+      # print "NEW=\n",new_flows
       # ###########################################          new pkt count > old => more pkt of same flow => add
       # print merg
       df=merg.loc[(merg['tp_src_x']==merg['tp_src_y']) &  (merg['tp_dst_x']==merg['tp_dst_y']) & (merg['nw_proto_x']==merg['nw_proto_y']) & (merg['packet_count_y']>merg['packet_count_x'])]
@@ -261,7 +294,7 @@ def _handle_flowstats_received (event):
       df=df.drop('cookie_x',axis=1)
       df=df.drop('packet_count_x',axis=1)
       df=df.drop('nw_proto_x',axis=1)
-      df.columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'] 
+      df.columns=['nw_src','nw_dst','nw_proto','tp_src','tp_dst','cookie','packet_count'] 
       # print "DF=\n",df
       # test=pd.DataFrame(np.random.randn(5,7),columns=['nw_src','nw_dst','cookie','packet_count','nw_proto','tp_src','tp_dst'])
       new_flows=new_flows.append(df)
