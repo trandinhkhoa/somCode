@@ -33,7 +33,7 @@ import pickle
 import pandas as pd 
 import numpy as np
 import copy
-# import minisom as minisom
+import minisom
 # include as part of the betta branch
 from pox.openflow.of_json import *
 
@@ -60,6 +60,10 @@ def calculate_Entropy(df):
     entropy = (-prob*np.log2(prob)).sum()
     return entropy
 
+def normalize(vector):
+    for i in vector.index:
+      vector[i] = 0.5*(np.tanh(0.1*(vector[i]-mean[i])/std[i])+1)
+
 # handler to display flow statistics received in JSON format
 # structure of event.stats is defined by ofp_flow_stats()
 def _handle_flowstats_received (event):
@@ -68,8 +72,8 @@ def _handle_flowstats_received (event):
     dpidToStr(event.connection.dpid), stats)
   global cnt,df1,df2 
   global arr1,arr2
-  print "dpid=", event.connection.dpid
-  if (event.connection.dpid==51):
+  if (event.connection.dpid==1):
+    print "dpid=", event.connection.dpid
     # print stats
     print "************************************************"
     n1=t.time()                              ###########################n1#####################
@@ -266,29 +270,34 @@ def _handle_flowstats_received (event):
       total_packets = new_flows.packet_count.sum()
       feature_vector = pd.Series([ent_ip_src,ent_tp_src,ent_tp_dst,ent_packet_type,total_packets], index=['ent_ip_src', 'ent_tp_src', 'ent_tp_dst', 'ent_packet_type', 'total_packets'])
       print "Feature list \n ", feature_vector
+      normalize(feature_vector)
+      tobeClassifed = feature_vector.values
+      print "ATK OR NOR ? \t",minisom.som.what_type(tobeClassifed)
       df1 = df2.copy()
       n12 = t.time()     ################  n12-n1 = total time ##############
       print('From Request to Reply =',n1-n0)
       print('total delay =', n12 -n1)
       timeVector =  pd.Series([n12 - start,n1 - n0,n12 - n1],index=['Time','ReqRep_Delay','Cal_Delay'])
-      if (cnt < 145) or (cnt>145):                       
-        featureTable.loc[cnt-2] = feature_vector  
-        timeTable.loc[cnt-2] = timeVector
-        # pd.Series(np.array([0]), index= range(0,299))
-      elif cnt==145:                   ### 1hour mark =730
-        featureTable.loc[cnt-2]= feature_vector  
-        timeTable.loc[cnt-2] = timeVector
-        printItem1 = featureTable
-        printItem2 = timeTable
-        printItem1.to_pickle('./ext/outputFeature/20160322-feature1-Atk')
-        printItem2.to_pickle('./ext/outputTime/20160322-time1-Atk')
-      elif cnt==290:                   ### 1hour mark =730
-        featureTable.loc[cnt-2]= feature_vector  
-        timeTable.loc[cnt-2] = timeVector
-        printItem1 = featureTable
-        printItem2 = timeTable
-        printItem1.to_pickle('./ext/outputFeature/20160322-feature2-Atk')
-        printItem2.to_pickle('./ext/outputTime/20160322-time2-Atk')
+      # if total_packets>=10000:
+      #   print("ATTACK DETECTED!!!! \n ATTACK DETECTED !!!!")
+      # if (cnt < 145) or (cnt>145):                       
+      #   featureTable.loc[cnt-2] = feature_vector  
+      #   timeTable.loc[cnt-2] = timeVector
+      #   # pd.Series(np.array([0]), index= range(0,299))
+      # elif cnt==145:                   ### 1hour mark =730
+      #   featureTable.loc[cnt-2]= feature_vector  
+      #   timeTable.loc[cnt-2] = timeVector
+      #   printItem1 = featureTable
+      #   printItem2 = timeTable
+      #   printItem1.to_pickle('./ext/outputFeature/20160322-feature1-Atk')
+      #   printItem2.to_pickle('./ext/outputTime/20160322-time1-Atk')
+      # elif cnt==290:                   ### 1hour mark =730
+      #   featureTable.loc[cnt-2]= feature_vector  
+      #   timeTable.loc[cnt-2] = timeVector
+      #   printItem1 = featureTable
+      #   printItem2 = timeTable
+      #   printItem1.to_pickle('./ext/outputFeature/20160322-feature2-Atk')
+      #   printItem2.to_pickle('./ext/outputTime/20160322-time2-Atk')
 
 
 # handler to display port statistics received in JSON format
@@ -300,9 +309,10 @@ def _handle_portstats_received (event):
 # main functiont to launch the module
 def launch ():
   from pox.lib.recoco import Timer
-  global start
-  global cnt
+  global start,cnt,mean,std
   cnt=0
+  mean = pd.read_pickle("./somInput/meanStats")
+  std = pd.read_pickle("./somInput/stdStats")
   start=t.time()
   print 'start=',start
   global featureTable,timeTable
